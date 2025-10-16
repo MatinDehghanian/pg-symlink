@@ -44,20 +44,30 @@ echo
 # --- Alias installation ----------------------------------------------------
 
 if [[ "$CHOICE" == "1" ]]; then
-  SHELL_NAME=$(basename "$SHELL")
-  RC_FILE="$HOME/.${SHELL_NAME}rc"
+  # Detect shell config file robustly
+  if [[ -n "$SHELL" ]]; then
+    SHELL_NAME=$(basename "$SHELL")
+  else
+    SHELL_NAME="bash" # fallback
+  fi
+  case "$SHELL_NAME" in
+    bash) RC_FILE="$HOME/.bashrc" ;;
+    zsh)  RC_FILE="$HOME/.zshrc" ;;
+    fish) RC_FILE="$HOME/.config/fish/config.fish" ;;
+    *)    RC_FILE="$HOME/.profile" ;;
+  esac
 
   info "⚙️  Adding alias to $RC_FILE..."
 
-  if ! grep -q "alias pg=" "$RC_FILE"; then
-    echo "alias pg='pasarguard'" >> "$RC_FILE"
-    success "✅ Alias added to $RC_FILE"
-  else
-    info "⚠️  Alias already exists in $RC_FILE"
-  fi
+  # Remove any previous pg alias
+  sed -i '/alias pg=/d' "$RC_FILE" 2>/dev/null || true
 
-  # Reload shell config only if interactive
-  if [[ -t 0 ]]; then
+  # Add alias
+  echo "alias pg='pasarguard'" >> "$RC_FILE"
+  success "✅ Alias added to $RC_FILE"
+
+  # Reload shell config only if interactive and not fish
+  if [[ -t 0 && "$SHELL_NAME" != "fish" ]]; then
     info "🔄 Reloading shell configuration..."
     # shellcheck disable=SC1090
     source "$RC_FILE"
@@ -72,6 +82,12 @@ elif [[ "$CHOICE" == "2" ]]; then
   info "⚙️  Creating symlink at $TARGET..."
 
   if [[ -e "$TARGET" ]]; then
+    # Check if it's already the correct symlink
+    if [[ -L "$TARGET" && "$(readlink "$TARGET")" == "$PASARGUARD_PATH" ]]; then
+      success "✅ Symlink already exists and points to pasarguard."
+      success "🎉 Try running: pg restart"
+      exit 0
+    fi
     error "❌ File already exists at $TARGET"
     read -rp "Overwrite it? [y/N]: " CONFIRM
     if [[ "$CONFIRM" =~ ^[Yy]$ ]]; then
@@ -88,7 +104,13 @@ elif [[ "$CHOICE" == "2" ]]; then
 
 # --- Invalid choice --------------------------------------------------------
 
+
 else
   error "❌ Invalid choice. Exiting."
   exit 1
 fi
+
+# --- Summary --------------------------------------------------------------
+echo
+success "✅ Setup complete!"
+info "Run 'pg <command>' to use pasarguard via shortcut."
