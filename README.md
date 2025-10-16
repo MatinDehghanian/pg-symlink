@@ -93,8 +93,3 @@ Now you can use: pg restart
 ```
 
 ---
-
-## 📝 Author & License
-Matin Dehghanian  
-MIT License
-Feel free to fork, adapt, improve.
